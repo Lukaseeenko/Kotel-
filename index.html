@@ -1,0 +1,70 @@
+<!DOCTYPE html>
+<html lang="cs">
+<head>
+  <meta charset="UTF-8" />
+  <title>Kolo štěstí</title>
+  <style>
+    body { background: #222; color: white; text-align: center; font-family: sans-serif; }
+    canvas { margin-top: 50px; }
+  </style>
+</head>
+<body>
+  <h1>🎡 Kolo štěstí</h1>
+  <canvas id="wheel" width="500" height="500"></canvas>
+  <h2 id="winner"></h2>
+
+  <script src="/socket.io/socket.io.js"></script>
+  <script>
+    const socket = io();
+    const canvas = document.getElementById("wheel");
+    const ctx = canvas.getContext("2d");
+    const center = canvas.width / 2;
+    let names = [];
+    let angle = 0;
+
+    function drawWheel() {
+      const slice = 2 * Math.PI / names.length;
+      for (let i = 0; i < names.length; i++) {
+        ctx.beginPath();
+        ctx.moveTo(center, center);
+        ctx.fillStyle = `hsl(${i * 360 / names.length}, 100%, 50%)`;
+        ctx.arc(center, center, center, i * slice + angle, (i + 1) * slice + angle);
+        ctx.fill();
+        ctx.fillStyle = "black";
+        ctx.save();
+        ctx.translate(center, center);
+        ctx.rotate(i * slice + slice / 2 + angle);
+        ctx.fillText(names[i], 100, 0);
+        ctx.restore();
+      }
+    }
+
+    function spinWheel() {
+      const rotations = Math.random() * 3 + 5;
+      const duration = 4000;
+      const start = performance.now();
+
+      function animate(now) {
+        const progress = Math.min((now - start) / duration, 1);
+        angle = progress * rotations * 2 * Math.PI;
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        drawWheel();
+        if (progress < 1) requestAnimationFrame(animate);
+        else {
+          const winnerIndex = Math.floor((names.length - (angle % (2 * Math.PI)) / (2 * Math.PI) * names.length)) % names.length;
+          document.getElementById("winner").innerText = `🎉 Vyhrává: ${names[winnerIndex]}!`;
+        }
+      }
+      requestAnimationFrame(animate);
+    }
+
+    socket.on("spin", (newNames) => {
+      names = newNames;
+      angle = 0;
+      ctx.clearRect(0, 0, canvas.width, canvas.height);
+      drawWheel();
+      setTimeout(spinWheel, 1000);
+    });
+  </script>
+</body>
+</html>
